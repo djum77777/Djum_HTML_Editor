@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Live Canvas Editor v6.7</title>
+<title>Live Canvas Editor v6.8</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1419; color: #e6e6e6; overflow: hidden; }
@@ -78,7 +78,7 @@
 
 <div id="emptyState" class="empty-state">
   <div class="empty-content">
-    <h2>Live Canvas Editor v6.7</h2>
+    <h2>Live Canvas Editor v6.8</h2>
     <p>Upload an HTML file or paste HTML to begin editing.<br>Drag containers to reposition. Click text to edit. Click images to replace. Animations paused for editing &mdash; click &#x23f8; Paused to preview motion.</p>
     <label class="upload-btn">
       <input type="file" id="fileInput2" accept=".html,.htm,.txt">
@@ -110,8 +110,8 @@
 (function() {
   'use strict';
 
-  var STORAGE_KEY = 'canvas-editor-v6-7-state';
-  var OLD_STORAGE_KEYS = ['canvas-editor-v6-6-state', 'canvas-editor-v6-state', 'canvas-editor-v6-1-state', 'canvas-editor-v6-2-state', 'canvas-editor-v6-3-state', 'canvas-editor-v6-4-state', 'canvas-editor-v6-5-state'];
+  var STORAGE_KEY = 'canvas-editor-v6-8-state';
+  var OLD_STORAGE_KEYS = ['canvas-editor-v6-7-state', 'canvas-editor-v6-6-state', 'canvas-editor-v6-state', 'canvas-editor-v6-1-state', 'canvas-editor-v6-2-state', 'canvas-editor-v6-3-state', 'canvas-editor-v6-4-state', 'canvas-editor-v6-5-state'];
   var SLIDE_SELECTORS = '.scene, .slide, .step, .panel, [data-slide], [data-scene], [data-step]';
   var LOGO_SELECTORS = '[class*="logo" i], [class*="brand" i], [class*="wordmark" i], [class*="navbar-brand" i], [class*="header-logo" i], [id*="logo" i], [id*="brand" i], [id*="wordmark" i], [id*="mark" i], [role="img"][aria-label]';
   var CONTAINER_TAGS = ['div','section','article','header','footer','main','aside','nav','figure','ul','ol','table','form','details','address'];
@@ -173,6 +173,8 @@
     }
   }
 
+  // v6.5: persistent "last saved" indicator. Solves the "did save work?" problem
+  // by showing the saved-at timestamp + dirty state at all times.
   function updateSavedIndicator() {
     if (!savedIndicator) return;
     if (state.isDirty) {
@@ -251,7 +253,7 @@
     canvasFrame.srcdoc = marker + '\n' + html;
     setTimeout(function() {
       if (state._loading && state.htmlContent === html) {
-        console.warn('v6.7: iframe load event did not fire; manually triggering setup');
+        console.warn('v6.8: iframe load event did not fire; manually triggering setup');
         onFrameLoad();
       }
     }, 1000);
@@ -270,7 +272,7 @@
     }
 
     try {
-      console.log('v6.7: loading', state.fileName, '(' + (state.htmlContent ? state.htmlContent.length : 0) + ' chars, ' + state.scenes.length + ' scenes so far)');
+      console.log('v6.8: loading', state.fileName, '(' + (state.htmlContent ? state.htmlContent.length : 0) + ' chars, ' + state.scenes.length + ' scenes so far)');
       injectEditorStyles(doc);
       ensureVisible(doc);
 
@@ -308,7 +310,7 @@
         setTimeout(function() { helpBanner.classList.remove('visible'); }, 6000);
       }
     } catch (e) {
-      console.error('v6.7 load error:', e);
+      console.error('v6.8 load error:', e);
       setStatus('Error: ' + e.message);
       state._loading = false;
     }
@@ -333,14 +335,27 @@
     }
   }
 
+  // v6.8: track every element the editor forced inline opacity/visibility on
+  // so cleanForExport can strip those exact properties on save. Without this
+  // tracking, the editor's "make-it-editable" force would ship with the saved
+  // file, and @keyframes whose "from" keyframe falls back to the current
+  // computed style (e.g. `.chat-msg { opacity:0; animation: appear ... forwards; }`)
+  // would start from inline opacity:1 instead of CSS opacity:0, so the reveal
+  // animation never fires.
   function ensureVisible(doc) {
     var all = doc.querySelectorAll('*');
     var win = doc.defaultView;
     for (var i = 0; i < all.length; i++) {
       try {
         var style = win.getComputedStyle(all[i]);
-        if (parseFloat(style.opacity) === 0) all[i].style.opacity = '1';
-        if (style.visibility === 'hidden') all[i].style.visibility = 'visible';
+        if (parseFloat(style.opacity) === 0) {
+          all[i].style.opacity = '1';
+          all[i].dataset.bmForcedOpacity = '1';
+        }
+        if (style.visibility === 'hidden') {
+          all[i].style.visibility = 'visible';
+          all[i].dataset.bmForcedVisibility = '1';
+        }
       } catch (e) {}
     }
   }
@@ -483,7 +498,7 @@
 
   function isInsideImageOnlyLink(el) {
     var parent = el.parentElement;
-    if (parent && parent.tagName === 'A' && parent.children.length === 1 && /IMG|SVG|CANVAS|PICTURE/.test(parent.firstElementChild.tagName)) {
+    if (parent && parent.tagName === 'A' && parent.children.length === 1 && /IMG|SVG|CANVAS|PICTURE/.test(parent.firstElementChild.tagNAME)) {
       return true;
     }
     return false;
@@ -514,7 +529,7 @@
           e.stopPropagation();
           var input = doc.createElement('input');
           input.type = 'file';
-          input.accept = 'image/*,.heic,.heif,.avif,.svg,.webp,.tif,.tiff,.bmp,.ico,.png,.jpg,.jpeg';
+          input.accept = 'image/*,.heic,.heif,.avif,.svg,.webp,.tif,.tiff,.bmp,.ico,.gif,.png,.jpg,.jpeg';
           input.onchange = function(ev) {
             var file = ev.target.files[0];
             if (file) {
@@ -726,6 +741,8 @@
             scheduleAutoSave();
           });
 
+          // v6.5 fix: hideAll was using add('visible') instead of remove('visible'),
+          // leaving sub-scene nav controls stuck on after first hover.
           var showAll = function() {
             badge.classList.add('visible');
             var btns = nav.querySelectorAll('button, .sub-counter');
@@ -743,6 +760,16 @@
     }
   }
 
+  // v6.6: tag hidden scenes with data-bm-scene-hidden so cleanForExport can
+  // strip the inline display:none!important on export. The tag stays during
+  // editing (so we can find them in the cloned tree) and is removed in
+  // cleanForExport along with the inline style.
+  //
+  // v6.8: also tag the active scene's editor-forced opacity/visibility/
+  // pointer-events with data-bm-forced-* so cleanForExport can strip them.
+  // Without this, showScene writes inline opacity:1/visibility:visible on
+  // the active scene, and that ships with the saved file, defeating any
+  // CSS animation that depends on the element starting at opacity:0.
   function showScene(index) {
     var doc = canvasFrame.contentDocument;
     if (!doc || state.scenes.length === 0) return;
@@ -759,8 +786,11 @@
       } else {
         scene.el.style.setProperty('display', '', 'important');
         scene.el.style.opacity = '1';
+        scene.el.dataset.bmForcedOpacity = '1';
         scene.el.style.visibility = 'visible';
+        scene.el.dataset.bmForcedVisibility = '1';
         scene.el.style.pointerEvents = 'auto';
+        scene.el.dataset.bmForcedPointerEvents = '1';
         scene.el.classList.add('editor-current-scene');
         delete scene.el.dataset.bmSceneHidden;
       }
@@ -774,6 +804,9 @@
     }
   }
 
+  // v6.6: same pattern for sub-scenes - tag with data-bm-subscene-hidden
+  // when hidden so cleanForExport can restore them on export.
+  // v6.8: same data-bm-forced-* tagging on the active sub-scene.
   function showSubScene(parentIdx, subIdx) {
     var doc = canvasFrame.contentDocument;
     if (!doc) return;
@@ -790,8 +823,11 @@
       } else {
         subs[i].el.style.setProperty('display', '', 'important');
         subs[i].el.style.opacity = '1';
+        subs[i].el.dataset.bmForcedOpacity = '1';
         subs[i].el.style.visibility = 'visible';
+        subs[i].el.dataset.bmForcedVisibility = '1';
         subs[i].el.style.pointerEvents = 'auto';
+        subs[i].el.dataset.bmForcedPointerEvents = '1';
         delete subs[i].el.dataset.bmSubsceneHidden;
       }
     }
@@ -843,6 +879,8 @@
     syncTimer = setTimeout(syncHtmlContent, 500);
   }
 
+  // v6.5: syncHtmlContent is now safer - returns false if DOM access fails
+  // so the caller (saveState) can fall back to last-known state.htmlContent.
   function syncHtmlContent() {
     var doc = canvasFrame.contentDocument;
     if (!doc) return false;
@@ -850,7 +888,7 @@
       state.htmlContent = getCleanedHTML(doc);
       return true;
     } catch (e) {
-      console.error('v6.7: syncHtmlContent failed:', e);
+      console.error('v6.8: syncHtmlContent failed:', e);
       return false;
     }
   }
@@ -861,6 +899,11 @@
     autoSaveTimer = setTimeout(saveState, 800);
   }
 
+  // v6.5: rewritten for clearer feedback and robustness:
+  //  - always tries to sync DOM first, falls back to last-known state.htmlContent
+  //  - explicit error messages when something goes wrong
+  //  - updates the persistent "last saved" indicator
+  //  - logs to console for debugging
   function saveState() {
     var doc = canvasFrame.contentDocument;
 
@@ -894,10 +937,10 @@
       updateSavedIndicator();
       var t = new Date().toLocaleTimeString();
       setStatus('Saved ' + t, 2000);
-      console.log('v6.7: saved', t, '-', toSave.htmlContent.length, 'chars,', Object.keys(toSave.positions).length, 'positions');
+      console.log('v6.8: saved', t, '-', toSave.htmlContent.length, 'chars,', Object.keys(toSave.positions).length, 'positions');
       return true;
     } catch (e) {
-      console.error('v6.7: localStorage write failed:', e);
+      console.error('v6.8: localStorage write failed:', e);
       setStatus('Save failed: ' + (e.message || e), 4000);
       return false;
     }
@@ -915,7 +958,7 @@
               localStorage.setItem(STORAGE_KEY, oldRaw);
               localStorage.removeItem(OLD_STORAGE_KEYS[i]);
               raw = oldRaw;
-              console.log('v6.7: migrated saved state from', OLD_STORAGE_KEYS[i]);
+              console.log('v6.8: migrated saved state from', OLD_STORAGE_KEYS[i]);
               break;
             }
           } catch (e) {}
@@ -945,24 +988,59 @@
     }
   }
 
+  // v6.6 cleanForExport: strip the inline display:none!important on hidden
+  // scenes/sub-scenes via data-bm-scene-hidden / data-bm-subscene-hidden
+  // tagging.
+  //
+  // v6.7 fix: also strip the inline animation-play-state (and the rest of
+  // the animation/transition shorthand and longhands) that setAnimationPlayState
+  // added on every element during load. Without stripping, the saved file ships
+  // with every animation paused inline - the browser respects inline animation-
+  // play-state over the original CSS, so "sequences of text appearing" never
+  // appear when the saved HTML is opened. The same removal applies to any
+  // transition properties the editor may have written.
+  //
+  // v6.8 fix: also strip the inline opacity / visibility / pointer-events that
+  // ensureVisible() and showScene/showSubScene wrote on load. The chat-reveal
+  // case: `.chat-msg { opacity: 0; animation: appear 0.5s forwards; }`. The
+  // `from` keyframe falls back to the element's current style (now inline
+  // opacity:1 from ensureVisible), so the @keyframes animates from 1 to 1 and
+  // the reveal never fires. Stripping the inline opacity on save restores the
+  // CSS opacity:0 base so the animation starts from 0 and reveals correctly.
+  // Same logic for visibility:hidden-based reveals and pointer-events.
+  //
+  // Order matters: hidden-scene strip runs FIRST so we can confirm the
+  // display:none!important count, then the per-element loop strips overlay
+  // classes/attributes AND inline animation/transition/opacity/visibility/
+  // pointer-events properties in the same pass.
   function cleanForExport(doc) {
     var cloned = doc.documentElement.cloneNode(true);
 
+    // 1. Restore hidden scenes/sub-scenes for export.
     var hiddenScenes = cloned.querySelectorAll('[data-bm-scene-hidden], [data-bm-subscene-hidden]');
     for (var hs = 0; hs < hiddenScenes.length; hs++) {
       hiddenScenes[hs].style.removeProperty('display');
       delete hiddenScenes[hs].dataset.bmSceneHidden;
       delete hiddenScenes[hs].dataset.bmSubsceneHidden;
     }
-    console.log('v6.7: stripped display:none from', hiddenScenes.length, 'hidden scenes/sub-scenes');
+    console.log('v6.8: stripped display:none from', hiddenScenes.length, 'hidden scenes/sub-scenes');
 
+    // 2. Strip editor overlays AND inline animation/transition/opacity/
+    //    visibility/pointer-events properties in one pass.
     var animationStripped = 0;
     var transitionStripped = 0;
+    var opacityStripped = 0;
+    var visibilityStripped = 0;
+    var pointerStripped = 0;
     var all = cloned.querySelectorAll('*');
     for (var i = 0; i < all.length; i++) {
       var el = all[i];
       var s = el.style;
 
+      // v6.7: setAnimationPlayState() wrote style.animationPlayState = 'paused'
+      // on EVERY element on load. That pauses the saved file's animations too
+      // (inline wins over CSS). Strip it so the original @keyframes run when
+      // the saved HTML is opened. Same for transitions if any were set.
       var hadAnim = s.animationPlayState || s.animation || s.animationName || s.animationDuration || s.animationDelay || s.animationIterationCount || s.animationDirection || s.animationFillMode || s.animationTimingFunction;
       var hadTrans = s.transition || s.transitionProperty || s.transitionDuration || s.transitionDelay || s.transitionTimingFunction;
       if (hadAnim) {
@@ -986,6 +1064,30 @@
         transitionStripped++;
       }
 
+      // v6.8: strip the editor-forced opacity/visibility/pointer-events so
+      // the original CSS animations (chat reveals, fade-ins, visibility-
+      // based reveals) run when the saved file is opened. Without this,
+      // the saved file ships with inline opacity:1 / visibility:visible /
+      // pointer-events:auto on every element the editor touched, defeating
+      // any CSS animation whose "from" falls back to the element's current
+      // style.
+      if (el.dataset.bmForcedOpacity) {
+        s.removeProperty('opacity');
+        delete el.dataset.bmForcedOpacity;
+        opacityStripped++;
+      }
+      if (el.dataset.bmForcedVisibility) {
+        s.removeProperty('visibility');
+        delete el.dataset.bmForcedVisibility;
+        visibilityStripped++;
+      }
+      if (el.dataset.bmForcedPointerEvents) {
+        s.removeProperty('pointer-events');
+        delete el.dataset.bmForcedPointerEvents;
+        pointerStripped++;
+      }
+
+      // 3. Strip editor classes/attributes
       el.classList.remove('editor-text');
       el.classList.remove('editor-logo');
       el.classList.remove('editor-image');
@@ -1007,9 +1109,13 @@
       if (el.getAttribute('spellcheck') !== null) el.removeAttribute('spellcheck');
       if (s.cursor === 'grabbing') s.cursor = '';
     }
-    console.log('v6.7: stripped inline animation-play-state from', animationStripped, 'elements');
-    console.log('v6.7: stripped inline transitions from', transitionStripped, 'elements');
+    console.log('v6.8: stripped inline animation-play-state from', animationStripped, 'elements');
+    console.log('v6.8: stripped inline transitions from', transitionStripped, 'elements');
+    console.log('v6.8: stripped inline opacity from', opacityStripped, 'elements');
+    console.log('v6.8: stripped inline visibility from', visibilityStripped, 'elements');
+    console.log('v6.8: stripped inline pointer-events from', pointerStripped, 'elements');
 
+    // 4. Strip the editor's overlay elements and injected style block.
     var handles = cloned.querySelectorAll('.editor-handle');
     for (var h = 0; h < handles.length; h++) handles[h].remove();
 
@@ -1035,6 +1141,10 @@
     return html;
   }
 
+  // v6.5: download trigger now uses the PARENT document, not the iframe.
+  // The iframe is sandboxed without allow-scripts, so programmatic anchor
+  // downloads from inside the iframe are silently blocked by browsers.
+  // The parent document has full privileges, so the download works reliably.
   function triggerDownload(content, filename, mimeType) {
     var blob = new Blob([content], { type: mimeType });
     var url = URL.createObjectURL(blob);
@@ -1073,7 +1183,7 @@
     try {
       userName = window.prompt('Save as filename:', suggested);
     } catch (e) {
-      console.error('v6.7: window.prompt failed:', e);
+      console.error('v6.8: window.prompt failed:', e);
     }
     if (userName === null) {
       setStatus('Save As cancelled');
@@ -1096,7 +1206,7 @@
     }
 
     var texts = [];
-    var els = doc.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, span, h1, blockquote, div');
+    var els = doc.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, span, a, blockquote, div');
     for (var i = 0; i < els.length; i++) {
       var t = els[i].textContent.replace(/\s+/g, ' ').trim();
       if (t && t.length > 1 && texts.indexOf(t) === -1) texts.push(t);
