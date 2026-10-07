@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<!-- combination of HTML and JSON Previews -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor Home</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      overflow: hidden;
+    }
+    header {
+      background: white;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 14px 24px 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .header-top {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
+    h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .header-sub {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .new-tab-link {
+      margin-left: auto;
+      align-self: center;
+      font-size: 12px;
+      color: #0d9488;
+      text-decoration: none;
+      padding: 6px 10px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .new-tab-link:hover {
+      background: #f0fdfa;
+      text-decoration: underline;
+    }
+    .tabs {
+      display: flex;
+      gap: 2px;
+    }
+    .tab {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #64748b;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      font-family: inherit;
+    }
+    .tab:hover { color: #0f172a; }
+    .tab.active {
+      color: #0d9488;
+      border-bottom-color: #0d9488;
+    }
+    main {
+      height: calc(100vh - 88px);
+      position: relative;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: none;
+      background: white;
+    }
+    iframe.active { display: block; }
+    .fallback-msg {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      padding: 24px;
+      border-radius: 8px;
+      text-align: center;
+      max-width: 480px;
+    }
+    .fallback-msg strong { display: block; margin-bottom: 8px; }
+    .fallback-msg a { color: #0d9488; }
+    noscript .noscript-msg {
+      padding: 24px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      margin: 24px;
+      border-radius: 8px;
+    }
+    noscript .noscript-msg a { color: #0d9488; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-top">
+      <h1>Editor Home</h1>
+      <span class="header-sub">v1.0 &middot; HTML Canvas + JSON Tutorial</span>
+      <a class="new-tab-link" id="newTabLink" href="../editor-v6-8/index.html" target="_blank" rel="noopener">Open current in new tab &#x2197;</a>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-target="html" type="button">HTML Canvas Editor</button>
+      <button class="tab" data-target="json" type="button">JSON Tutorial Editor</button>
+    </nav>
+  </header>
+  <main>
+    <iframe id="html" class="active" src="../editor-v6-8/index.html" title="HTML Canvas Editor"></iframe>
+    <iframe id="json" src="../editor-v2/index.html" title="JSON Tutorial Editor"></iframe>
+    <div class="fallback-msg" id="html-fallback">
+      <strong>Couldn&rsquo;t load the HTML editor in this view.</strong>
+      <p>Open it directly in a new tab instead.</p>
+      <p><a href="../editor-v6-8/index.html" target="_blank" rel="noopener">Open HTML Canvas Editor &#x2197;</a></p>
+    </div>
+    <div class="fallback-msg" id="json-fallback">
+      <strong>Couldn&rsquo;t load the JSON editor in this view.</strong>
+      <p>Open it directly in a new tab instead.</p>
+      <p><a href="../editor-v2/index.html" target="_blank" rel="noopener">Open JSON Tutorial Editor &#x2197;</a></p>
+    </div>
+  </main>
+  <noscript>
+    <div class="noscript-msg">
+      <h2>JavaScript is required for the tab interface</h2>
+      <p>Open the editors directly:</p>
+      <ul>
+        <li><a href="../editor-v6-8/index.html">HTML Canvas Editor</a></li>
+        <li><a href="../editor-v2/index.html">JSON Tutorial Editor</a></li>
+      </ul>
+    </div>
+  </noscript>
+  <script>
+    (function() {
+      var tabs = document.querySelectorAll('.tab');
+      var frames = document.querySelectorAll('iframe');
+      var newTabLink = document.getElementById('newTabLink');
+      var targets = {
+        'html': '../editor-v6-8/index.html',
+        'json': '../editor-v2/index.html'
+      };
+      tabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          var target = tab.dataset.target;
+          tabs.forEach(function(t) { t.classList.remove('active'); });
+          frames.forEach(function(f) { f.classList.remove('active'); });
+          tab.classList.add('active');
+          var frame = document.getElementById(target);
+          frame.classList.add('active');
+          newTabLink.href = targets[target];
+        });
+      });
+      // If an iframe doesn't fire load in 5s, surface a fallback so the
+      // user can still open the editor in a new tab.
+      frames.forEach(function(frame) {
+        var loaded = false;
+        frame.addEventListener('load', function() { loaded = true; });
+        setTimeout(function() {
+          if (!loaded) {
+            frame.style.display = 'none';
+            var fb = document.getElementById(frame.id + '-fallback');
+            if (fb) fb.style.display = 'block';
+          }
+        }, 5000);
+      });
+    })();
+  </script>
+</body>
+</html>
